@@ -1,0 +1,14 @@
+{
+  "name": "novel-crawler",
+  "version": "1.0.0",
+  "description": "A web crawler for novels that generates EPUB files",
+  "main": "script/script.js",
+  "scripts": {
+    "start": "node script/script.js"
+  },
+  "dependencies": {
+    "axios": "^0.27.2",
+    "cheerio": "^1.0.0-rc.12",
+    "epub-gen": "^0.1.0"
+  }
+}
