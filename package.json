@@ -7,8 +7,8 @@
     "start": "node script/script.js"
   },
   "dependencies": {
-    "axios": "^0.27.2",
-    "cheerio": "^1.0.0-rc.12",
-    "epub-gen": "^0.1.0"
+  "axios": "^1.6.2",
+  "cheerio": "^1.0.0-rc.12",
+  "epub-gen": "^0.1.2"
   }
 }
