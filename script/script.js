@@ -2,7 +2,6 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const fs = require('fs');
 const path = require('path');
-const epub = require('epub-gen-memory').default;  // Note the .default here
 
 class NovelCrawler {
     constructor(baseUrl) {
@@ -107,66 +106,25 @@ class NovelCrawler {
         };
     }
 
-    async generateEPUB() {
-        // First prepare the chapters array
-        const chapters = [];
-        
-        // Add metadata as first chapter
-        chapters.push({
-            title: 'Metadata',
-            data: `
-                <h1>${this.novelInfo.title}</h1>
-                <h2>by ${this.novelInfo.author}</h2>
-                <p><strong>Status:</strong> ${this.novelInfo.status}</p>
-                <p><strong>Genres:</strong> ${this.novelInfo.genres.join(', ')}</p>
-                <p><strong>Source:</strong> ${this.novelInfo.source}</p>
-                <h3>Description</h3>
-                <p>${this.novelInfo.description}</p>
-            `,
-            excludeFromToc: false,
-            beforeToc: false
-        });
-        
-        // Add all novel chapters
-        for (const chapter of this.novelInfo.chapters) {
-            console.log(`Fetching chapter: ${chapter.title}`);
-            const chapterContent = await this.getChapterContent(chapter.url);
-            chapters.push({
-                title: chapterContent.title,
-                data: chapterContent.content,
-                excludeFromToc: false,
-                beforeToc: false
-            });
-        }
-        
-        // Prepare options for EPUB generation
-        const options = {
-            title: this.novelInfo.title,
-            author: this.novelInfo.author,
-            description: this.novelInfo.description,
-            publisher: this.novelInfo.source,
-            cover: this.novelInfo.cover,
-            content: chapters,  // Pass the prepared chapters array here
-            verbose: true  // Enable verbose logging for debugging
-        };
-        
-        // Generate EPUB
-        const outputPath = path.join(process.cwd(), 'results', `${this.novelInfo.title.replace(/[^a-z0-9]/gi, '_')}.epub`);
+    async saveToJson() {
+        const outputPath = path.join(process.cwd(), 'results', `${this.novelInfo.title.replace(/[^a-z0-9]/gi, '_')}.json`);
         
         try {
-            // Generate EPUB buffer
-            const epubBuffer = await epub(options);
+            // Create results directory if it doesn't exist
+            if (!fs.existsSync(path.dirname(outputPath))) {
+                fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+            }
             
-            // Write the buffer to file
-            fs.writeFileSync(outputPath, epubBuffer);
-            console.log(`EPUB generated at: ${outputPath}`);
+            // Save novel info as JSON
+            fs.writeFileSync(outputPath, JSON.stringify(this.novelInfo, null, 2));
+            console.log(`Novel data saved to: ${outputPath}`);
             
             // Verify file was created
             if (!fs.existsSync(outputPath)) {
-                throw new Error('EPUB file was not created');
+                throw new Error('JSON file was not created');
             }
         } catch (err) {
-            console.error('EPUB generation failed:', err);
+            console.error('Failed to save JSON:', err);
             throw err;
         }
     }
@@ -181,7 +139,17 @@ class NovelCrawler {
         await this.getChapterList();
         console.log(`Found ${this.novelInfo.chapters.length} chapters`);
         
-        await this.generateEPUB();
+        // Fetch content for first few chapters (optional)
+        // You might want to limit this as fetching all chapters could take a long time
+        const maxChaptersToFetch = 5; // Change this as needed
+        for (let i = 0; i < Math.min(this.novelInfo.chapters.length, maxChaptersToFetch); i++) {
+            const chapter = this.novelInfo.chapters[i];
+            console.log(`Fetching content for chapter ${i + 1}: ${chapter.title}`);
+            const content = await this.getChapterContent(chapter.url);
+            chapter.content = content.content;
+        }
+        
+        await this.saveToJson();
     }
 }
 
@@ -190,12 +158,6 @@ const novelUrl = process.argv[2];
 if (!novelUrl) {
     console.error('Please provide a novel URL as an argument');
     process.exit(1);
-}
-
-// Create results directory if it doesn't exist
-const resultsDir = path.join(__dirname, '../results');
-if (!fs.existsSync(resultsDir)) {
-    fs.mkdirSync(resultsDir);
 }
 
 // Run crawler
