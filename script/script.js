@@ -145,11 +145,16 @@ async generateEPUB() {
     }
     
     // Generate EPUB
-const outputPath = path.join(process.env.GITHUB_WORKSPACE || __dirname, 'results', `${this.novelInfo.title}.epub`);
+   const outputPath = path.join(process.cwd(), 'results', `${this.novelInfo.title.replace(/[^a-z0-9]/gi, '_')}.epub`);
     
     try {
         await new EPub(options, outputPath).promise;
         console.log(`EPUB generated at: ${outputPath}`);
+        
+        // Verify file was created
+        if (!fs.existsSync(outputPath)) {
+            throw new Error('EPUB file was not created');
+        }
     } catch (err) {
         console.error('EPUB generation failed:', err);
         throw err;
