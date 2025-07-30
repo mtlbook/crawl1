@@ -38,7 +38,10 @@ class NovelCrawler {
         
         // Extract novel info
         this.novelInfo.title = $('.col-xs-12.col-sm-8.col-md-8.desc h3.title').text().trim();
-        this.novelInfo.description = $('.col-xs-12.col-sm-8.col-md-8.desc .desc-text').text().trim();
+        
+        // Preserve HTML in description
+        const descElement = $('.col-xs-12.col-sm-8.col-md-8.desc .desc-text');
+        this.novelInfo.description = descElement.html() || descElement.text().trim();
         
         // Extract cover image
         const coverPath = $('.col-xs-12.col-sm-4.col-md-4.info-holder .book img').attr('src');
@@ -95,8 +98,17 @@ class NovelCrawler {
         const chapterTitle = $('.col-xs-12 a.truyen-title').text().trim() + ' - ' + 
                            $('.col-xs-12 h2').text().trim();
         
-        let content = $('.cha-content .cha-words').html();
-        if (!content) {
+        // Get content from chapter-content div and clean it
+        let content = $('#chapter-content').html();
+        
+        if (content) {
+            // Remove iframes
+            content = content.replace(/<iframe[^>]*>.*?<\/iframe>/g, '');
+            // Remove comments
+            content = content.replace(/<!--.*?-->/gs, '');
+            // Remove empty paragraphs
+            content = content.replace(/<p>\s*<\/p>/g, '');
+        } else {
             content = 'Chapter content not found';
         }
         
@@ -139,14 +151,19 @@ class NovelCrawler {
         await this.getChapterList();
         console.log(`Found ${this.novelInfo.chapters.length} chapters`);
         
-        // Fetch content for first few chapters (optional)
-        // You might want to limit this as fetching all chapters could take a long time
-        const maxChaptersToFetch = 5; // Change this as needed
-        for (let i = 0; i < Math.min(this.novelInfo.chapters.length, maxChaptersToFetch); i++) {
+        // Fetch content for ALL chapters
+        for (let i = 0; i < this.novelInfo.chapters.length; i++) {
             const chapter = this.novelInfo.chapters[i];
-            console.log(`Fetching content for chapter ${i + 1}: ${chapter.title}`);
-            const content = await this.getChapterContent(chapter.url);
-            chapter.content = content.content;
+            console.log(`Fetching content for chapter ${i + 1}/${this.novelInfo.chapters.length}: ${chapter.title}`);
+            try {
+                const content = await this.getChapterContent(chapter.url);
+                chapter.content = content.content;
+            } catch (err) {
+                console.error(`Failed to fetch chapter ${i + 1}:`, err.message);
+                chapter.content = 'Failed to load chapter content';
+            }
+            // Add delay between requests to avoid rate limiting
+            await new Promise(resolve => setTimeout(resolve, 1000));
         }
         
         await this.saveToJson();
