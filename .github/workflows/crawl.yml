@@ -18,22 +18,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          # Removed cache as we don't have a lock file
 
       - name: Install dependencies
         run: |
-          cd novel-crawler
           npm install --no-package-lock axios cheerio epub-gen
-          # --no-package-lock prevents creating a lock file
+          # Removed cd since we're working in root
 
       - name: Run crawler
         run: |
-          cd novel-crawler
           node script/script.js "${{ github.event.inputs.url }}"
 
       - name: Upload EPUB
         uses: actions/upload-artifact@v4
         with:
           name: novel-epub
-          path: novel-crawler/results/*.epub
+          path: results/*.epub  # Changed path to match your structure
           retention-days: 5
