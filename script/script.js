@@ -2,7 +2,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const fs = require('fs');
 const path = require('path');
-const Epub = require('epub-gen-memory');
+const epub = require('epub-gen-memory').default;  // Note the .default here
 
 class NovelCrawler {
     constructor(baseUrl) {
@@ -107,7 +107,7 @@ class NovelCrawler {
         };
     }
 
-     async generateEPUB() {
+  async generateEPUB() {
         // Prepare options for EPUB generation
         const options = {
             title: this.novelInfo.title,
@@ -149,7 +149,10 @@ class NovelCrawler {
         
         try {
             // Using epub-gen-memory correctly
-            await Epub(options, outputPath);
+            const epubBuffer = await epub(options);
+            
+            // Write the buffer to file
+            fs.writeFileSync(outputPath, epubBuffer);
             console.log(`EPUB generated at: ${outputPath}`);
             
             // Verify file was created
