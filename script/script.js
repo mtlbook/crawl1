@@ -107,7 +107,7 @@ class NovelCrawler {
         };
     }
 
-    async generateEPUB() {
+     async generateEPUB() {
         // Prepare options for EPUB generation
         const options = {
             title: this.novelInfo.title,
@@ -148,9 +148,8 @@ class NovelCrawler {
         const outputPath = path.join(process.cwd(), 'results', `${this.novelInfo.title.replace(/[^a-z0-9]/gi, '_')}.epub`);
         
         try {
-            // Using epub-gen-memory
-            const epub = new Epub(options, outputPath);
-            await epub.genEpub();
+            // Using epub-gen-memory correctly
+            await Epub(options, outputPath);
             console.log(`EPUB generated at: ${outputPath}`);
             
             // Verify file was created
