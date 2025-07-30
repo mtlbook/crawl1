@@ -113,16 +113,14 @@ class NovelCrawler {
 async saveToEpub() {
     const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
     const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
-    const coverPath = path.join(process.cwd(), 'results', 'cover.jpg');
     
     try {
-        // Create results directory if it doesn't exist
         if (!fs.existsSync(path.dirname(outputPath))) {
             fs.mkdirSync(path.dirname(outputPath), { recursive: true });
         }
 
-        // Download cover image if available
-        let localCoverPath = null;
+        // Prepare cover image
+        let coverImage = null;
         if (this.novelInfo.cover) {
             try {
                 const response = await axios.get(this.novelInfo.cover, {
@@ -131,11 +129,14 @@ async saveToEpub() {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                     }
                 });
-                fs.writeFileSync(coverPath, response.data);
-                localCoverPath = coverPath;
-                console.log('Cover image downloaded successfully');
+                coverImage = {
+                    data: Buffer.from(response.data, 'binary'),
+                    mimeType: response.headers['content-type'] || 'image/jpeg',
+                    name: 'cover.jpg'
+                };
+                console.log('Cover image processed successfully');
             } catch (err) {
-                console.warn('Failed to download cover image:', err.message);
+                console.warn('Failed to process cover image:', err.message);
             }
         }
 
@@ -143,7 +144,7 @@ async saveToEpub() {
             title: this.novelInfo.title,
             author: this.novelInfo.author,
             publisher: this.novelInfo.source,
-            cover: localCoverPath, // Use local path to downloaded cover
+            cover: coverImage, // Use the image object directly
             content: [
                 {
                     title: 'Metadata',
@@ -151,7 +152,7 @@ async saveToEpub() {
                         <div style="text-align:center">
                             <h1>${this.novelInfo.title}</h1>
                             <h2>by ${this.novelInfo.author}</h2>
-                            ${localCoverPath ? `<img src="cover.jpg" style="max-width:100%; height:auto; margin:20px 0;"/>` : ''}
+                            ${coverImage ? `<img src="cover.jpg" alt="Cover" style="max-width:80%; height:auto; margin:20px 0;"/>` : ''}
                             <p><strong>Status:</strong> ${this.novelInfo.status}</p>
                             <p><strong>Genres:</strong> ${this.novelInfo.genres.join(', ')}</p>
                             <p><strong>Source:</strong> ${this.novelInfo.source}</p>
@@ -171,11 +172,6 @@ async saveToEpub() {
         // Generate EPUB
         await new Epub(options, outputPath).promise;
         console.log(`EPUB generated at: ${outputPath}`);
-
-        // Clean up cover image
-        if (localCoverPath && fs.existsSync(localCoverPath)) {
-            fs.unlinkSync(localCoverPath);
-        }
     } catch (err) {
         console.error('Failed to generate EPUB:', err);
         throw err;
