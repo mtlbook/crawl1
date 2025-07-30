@@ -17,6 +17,7 @@ class NovelCrawler {
             source: '',
             chapters: []
         };
+        this.localCoverPath = '';
     }
 
     async fetchPage(url) {
@@ -35,38 +36,74 @@ class NovelCrawler {
 
     async getNovelInfo() {
         const $ = await this.fetchPage(this.novelUrl);
-        
+
         this.novelInfo.title = $('.col-xs-12.col-sm-8.col-md-8.desc h3.title').text().trim();
-        
+
         const descElement = $('.col-xs-12.col-sm-8.col-md-8.desc .desc-text');
         this.novelInfo.description = descElement.html() || descElement.text().trim();
-        
+
         const coverPath = $('.col-xs-12.col-sm-4.col-md-4.info-holder .book img').attr('src');
         if (coverPath) {
             this.novelInfo.cover = new URL(coverPath, this.novelUrl).toString();
         }
-        
+
         const authors = [];
         $('.info div:has(h3:contains("Author:")) a').each((i, el) => {
             authors.push($(el).text().trim());
         });
         this.novelInfo.author = authors.join(', ');
-        
+
         $('.info div:has(h3:contains("Genre:")) a').each((i, el) => {
             this.novelInfo.genres.push($(el).text().trim());
         });
-        
+
         this.novelInfo.status = $('.info div:has(h3:contains("Status:")) a').text().trim();
-        
+
         this.novelInfo.source = $('.info div:has(h3:contains("Source:"))').contents().filter(function() {
             return this.nodeType === 3;
         }).text().trim();
     }
 
+    async downloadCover() {
+        if (!this.novelInfo.cover) {
+            console.log('No cover image to download.');
+            return;
+        }
+
+        const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
+        const coverFileName = `${sanitizedTitle}_cover.jpg`;
+        const coverDir = path.join(process.cwd(), 'results');
+        this.localCoverPath = path.join(coverDir, coverFileName);
+
+        try {
+            if (!fs.existsSync(coverDir)) {
+                fs.mkdirSync(coverDir, { recursive: true });
+            }
+
+            const response = await axios({
+                method: 'get',
+                url: this.novelInfo.cover,
+                responseType: 'stream'
+            });
+
+            const writer = fs.createWriteStream(this.localCoverPath);
+            response.data.pipe(writer);
+
+            return new Promise((resolve, reject) => {
+                writer.on('finish', resolve);
+                writer.on('error', reject);
+            });
+        } catch (error) {
+            console.error(`Error downloading cover image:`, error.message);
+            this.localCoverPath = ''; // Reset path on error
+        }
+    }
+
+
     async getChapterList(pageUrl = null) {
         const url = pageUrl || this.novelUrl;
         const $ = await this.fetchPage(url);
-        
+
         $('.list-chapter li a').each((i, el) => {
             const chapterUrl = new URL($(el).attr('href'), this.novelUrl);
             const chapterTitle = $(el).find('.chapter-text').text().trim() || $(el).attr('title');
@@ -75,7 +112,7 @@ class NovelCrawler {
                 url: chapterUrl.toString() // Only used temporarily for fetching
             });
         });
-        
+
         const nextPageLink = $('.pagination li.next a').attr('href');
         if (nextPageLink) {
             await this.getChapterList(new URL(nextPageLink, this.novelUrl));
@@ -84,16 +121,16 @@ class NovelCrawler {
 
     async getChapterContent(chapterUrl) {
         const $ = await this.fetchPage(new URL(chapterUrl));
-        
-        const chapterTitle = $('.col-xs-12 a.truyen-title').text().trim() + ' - ' + 
+
+        const chapterTitle = $('.col-xs-12 a.truyen-title').text().trim() + ' - ' +
                            $('.col-xs-12 h2').text().trim();
-        
+
         let content = $('#chapter-content').html();
-        
+
         if (content) {
             content = content.replace(/<iframe[^>]*>.*?<\/iframe>/g, '')
                            .replace(/<!--.*?-->/gs, '')
-                           .replace(/<p>\s*<\/p>/g, '')     
+                           .replace(/<p>\s*<\/p>/g, '')
                            .replace(/<img[^>]*>/g, '')
                            .replace(/<js[^>]*>/g, '')
                   .replace(/<script\b[^>]*>.*?<\/script>/gsi, '')
@@ -103,7 +140,7 @@ class NovelCrawler {
         } else {
             content = 'Chapter content not found';
         }
-        
+
         return {
             title: chapterTitle,
             content: content
@@ -113,7 +150,7 @@ class NovelCrawler {
    async saveToEpub() {
         const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
         const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
-        
+
         try {
             if (!fs.existsSync(path.dirname(outputPath))) {
                 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
@@ -123,7 +160,7 @@ class NovelCrawler {
                 title: this.novelInfo.title,
                 author: this.novelInfo.author,
                 publisher: this.novelInfo.source,
-                cover: this.novelInfo.cover,
+                cover: this.localCoverPath,
                 content: [
                     {
                         title: 'Metadata',
@@ -157,14 +194,17 @@ class NovelCrawler {
     async crawl() {
         await this.getNovelInfo();
         console.log(`Retrieved info for: ${this.novelInfo.title}`);
-        
+
+        await this.downloadCover();
+        console.log('Downloaded cover image.');
+
         await this.getChapterList();
         console.log(`Found ${this.novelInfo.chapters.length} chapters`);
-        
+
         for (let i = 0; i < this.novelInfo.chapters.length; i++) {
             const chapter = this.novelInfo.chapters[i];
             process.stdout.write(`Fetching ${i+1}/${this.novelInfo.chapters.length}\r`);
-            
+
             try {
                 const content = await this.getChapterContent(chapter.url);
                 chapter.content = content.content;
@@ -174,7 +214,7 @@ class NovelCrawler {
                 chapter.content = 'Failed to load content';
             }
         }
-        
+
         await this.saveToEpub();
         console.log('\nDone!');
     }
