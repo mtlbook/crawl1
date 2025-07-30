@@ -18,12 +18,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # Removed cache as we don't have a lock file
 
       - name: Install dependencies
         run: |
           cd novel-crawler
-          npm install axios cheerio epub-gen
+          npm install --no-package-lock axios cheerio epub-gen
+          # --no-package-lock prevents creating a lock file
 
       - name: Run crawler
         run: |
