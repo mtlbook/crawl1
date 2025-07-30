@@ -97,7 +97,8 @@ class NovelCrawler {
                            .replace(/<js[^>]*>/g, '')
                   .replace(/<script\b[^>]*>.*?<\/script>/gsi, '')
                 .replace(/<noscript\b[^>]*>.*?<\/noscript>/gsi, '')
-                            .replace(/<div[^>]*class\s*=\s*["']ads[^>]*>.*?<\/div>/gsi, '');
+                            .replace(/<div[^>]*class\s*=\s*["']ads[^>]*>.*?<\/div>/gsi, '')
+                            .replace(/<div[^>]*>\s*<\/div>/gsi, '');
         } else {
             content = 'Chapter content not found';
         }
@@ -117,9 +118,10 @@ class NovelCrawler {
                 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
             }
             
-            // Create output without URLs
+            // Create output with total chapter count
             const output = {
                 ...this.novelInfo,
+                totalChapters: this.novelInfo.chapters.length, // Add total chapter count
                 chapters: this.novelInfo.chapters.map(chapter => ({
                     title: chapter.title,
                     content: chapter.content
