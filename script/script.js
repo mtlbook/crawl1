@@ -4,9 +4,8 @@ const fs = require('fs');
 const path = require('path');
 
 class NovelCrawler {
-    constructor(baseUrl) {
-        this.baseUrl = new URL('https://novgo.net');
-        this.novelUrl = new URL(baseUrl);
+    constructor(novelUrl) {
+        this.novelUrl = new URL(novelUrl);
         this.novelInfo = {
             title: '',
             description: '',
@@ -36,37 +35,30 @@ class NovelCrawler {
     async getNovelInfo() {
         const $ = await this.fetchPage(this.novelUrl);
         
-        // Extract novel info
         this.novelInfo.title = $('.col-xs-12.col-sm-8.col-md-8.desc h3.title').text().trim();
         
-        // Preserve HTML in description
         const descElement = $('.col-xs-12.col-sm-8.col-md-8.desc .desc-text');
         this.novelInfo.description = descElement.html() || descElement.text().trim();
         
-        // Extract cover image
         const coverPath = $('.col-xs-12.col-sm-4.col-md-4.info-holder .book img').attr('src');
         if (coverPath) {
-            this.novelInfo.cover = new URL(coverPath, this.baseUrl).toString();
+            this.novelInfo.cover = new URL(coverPath, this.novelUrl).toString();
         }
         
-        // Extract author
         const authors = [];
         $('.info div:has(h3:contains("Author:")) a').each((i, el) => {
             authors.push($(el).text().trim());
         });
         this.novelInfo.author = authors.join(', ');
         
-        // Extract genres
         $('.info div:has(h3:contains("Genre:")) a').each((i, el) => {
             this.novelInfo.genres.push($(el).text().trim());
         });
         
-        // Extract status
         this.novelInfo.status = $('.info div:has(h3:contains("Status:")) a').text().trim();
         
-        // Extract source
         this.novelInfo.source = $('.info div:has(h3:contains("Source:"))').contents().filter(function() {
-            return this.nodeType === 3; // Text nodes
+            return this.nodeType === 3;
         }).text().trim();
     }
 
@@ -74,21 +66,18 @@ class NovelCrawler {
         const url = pageUrl || this.novelUrl;
         const $ = await this.fetchPage(url);
         
-        // Extract chapters from current page
         $('.list-chapter li a').each((i, el) => {
-            const chapterUrl = new URL($(el).attr('href'), this.baseUrl);
+            const chapterUrl = new URL($(el).attr('href'), this.novelUrl);
             const chapterTitle = $(el).find('.chapter-text').text().trim() || $(el).attr('title');
             this.novelInfo.chapters.push({
                 title: chapterTitle,
-                url: chapterUrl.toString()
+                url: chapterUrl.toString() // Only used temporarily for fetching
             });
         });
         
-        // Check for pagination
         const nextPageLink = $('.pagination li.next a').attr('href');
         if (nextPageLink) {
-            const nextPageUrl = new URL(nextPageLink, this.baseUrl);
-            await this.getChapterList(nextPageUrl);
+            await this.getChapterList(new URL(nextPageLink, this.novelUrl));
         }
     }
 
@@ -98,16 +87,12 @@ class NovelCrawler {
         const chapterTitle = $('.col-xs-12 a.truyen-title').text().trim() + ' - ' + 
                            $('.col-xs-12 h2').text().trim();
         
-        // Get content from chapter-content div and clean it
         let content = $('#chapter-content').html();
         
         if (content) {
-            // Remove iframes
-            content = content.replace(/<iframe[^>]*>.*?<\/iframe>/g, '');
-            // Remove comments
-            content = content.replace(/<!--.*?-->/gs, '');
-            // Remove empty paragraphs
-            content = content.replace(/<p>\s*<\/p>/g, '');
+            content = content.replace(/<iframe[^>]*>.*?<\/iframe>/g, '')
+                           .replace(/<!--.*?-->/gs, '')
+                           .replace(/<p>\s*<\/p>/g, '');
         } else {
             content = 'Chapter content not found';
         }
@@ -119,22 +104,25 @@ class NovelCrawler {
     }
 
     async saveToJson() {
-        const outputPath = path.join(process.cwd(), 'results', `${this.novelInfo.title.replace(/[^a-z0-9]/gi, '_')}.json`);
+        const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
+        const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.json`);
         
         try {
-            // Create results directory if it doesn't exist
             if (!fs.existsSync(path.dirname(outputPath))) {
                 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
             }
             
-            // Save novel info as JSON
-            fs.writeFileSync(outputPath, JSON.stringify(this.novelInfo, null, 2));
-            console.log(`Novel data saved to: ${outputPath}`);
+            // Create output without URLs
+            const output = {
+                ...this.novelInfo,
+                chapters: this.novelInfo.chapters.map(chapter => ({
+                    title: chapter.title,
+                    content: chapter.content
+                }))
+            };
             
-            // Verify file was created
-            if (!fs.existsSync(outputPath)) {
-                throw new Error('JSON file was not created');
-            }
+            fs.writeFileSync(outputPath, JSON.stringify(output, null, 2));
+            console.log(`Novel data saved to: ${outputPath}`);
         } catch (err) {
             console.error('Failed to save JSON:', err);
             throw err;
@@ -143,43 +131,38 @@ class NovelCrawler {
 
     async crawl() {
         await this.getNovelInfo();
-        console.log('Novel info retrieved:', {
-            title: this.novelInfo.title,
-            author: this.novelInfo.author
-        });
+        console.log(`Retrieved info for: ${this.novelInfo.title}`);
         
         await this.getChapterList();
         console.log(`Found ${this.novelInfo.chapters.length} chapters`);
         
-        // Fetch content for ALL chapters
         for (let i = 0; i < this.novelInfo.chapters.length; i++) {
             const chapter = this.novelInfo.chapters[i];
-            console.log(`Fetching content for chapter ${i + 1}/${this.novelInfo.chapters.length}: ${chapter.title}`);
+            process.stdout.write(`Fetching ${i+1}/${this.novelInfo.chapters.length}\r`);
+            
             try {
                 const content = await this.getChapterContent(chapter.url);
                 chapter.content = content.content;
+                await new Promise(resolve => setTimeout(resolve, 1000));
             } catch (err) {
-                console.error(`Failed to fetch chapter ${i + 1}:`, err.message);
-                chapter.content = 'Failed to load chapter content';
+                console.error(`\nFailed chapter ${i+1}:`, err.message);
+                chapter.content = 'Failed to load content';
             }
-            // Add delay between requests to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, 1000));
         }
         
         await this.saveToJson();
+        console.log('\nDone!');
     }
 }
 
-// Get URL from command line arguments
+// Main execution
 const novelUrl = process.argv[2];
 if (!novelUrl) {
     console.error('Please provide a novel URL as an argument');
     process.exit(1);
 }
 
-// Run crawler
-const crawler = new NovelCrawler(novelUrl);
-crawler.crawl().catch(err => {
+new NovelCrawler(novelUrl).crawl().catch(err => {
     console.error('Crawler error:', err);
     process.exit(1);
 });
