@@ -94,7 +94,10 @@ class NovelCrawler {
                            .replace(/<!--.*?-->/gs, '')
                            .replace(/<p>\s*<\/p>/g, '')     
                            .replace(/<img[^>]*>/g, '')
-                           .replace(/<js[^>]*>/g, '');
+                           .replace(/<js[^>]*>/g, '')
+                  .replace(/<script\b[^>]*>.*?<\/script>/gsi, '')
+                .replace(/<noscript\b[^>]*>.*?<\/noscript>/gsi, '')
+                            .replace(/<div[^>]*class\s*=\s*["']ads[^>]*>.*?<\/div>/gsi, '');
         } else {
             content = 'Chapter content not found';
         }
