@@ -2,7 +2,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const fs = require('fs');
 const path = require('path');
-const Epub = require('epub-gen-memory');
+const Epub = require('epub-gen');
 
 class NovelCrawler {
     constructor(novelUrl) {
@@ -110,7 +110,7 @@ class NovelCrawler {
         };
     }
 
- async saveToEpub() {
+   async saveToEpub() {
         const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
         const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
         
@@ -122,6 +122,7 @@ class NovelCrawler {
             const options = {
                 title: this.novelInfo.title,
                 author: this.novelInfo.author,
+                publisher: this.novelInfo.source,
                 cover: this.novelInfo.cover,
                 content: [
                     {
@@ -134,19 +135,18 @@ class NovelCrawler {
                             <p><strong>Source:</strong> ${this.novelInfo.source}</p>
                             <h3>Description</h3>
                             ${this.novelInfo.description}
-                        `
+                        `,
+                        beforeToc: true
                     },
                     ...this.novelInfo.chapters.map(chapter => ({
                         title: chapter.title,
-                        data: chapter.content,
-                        excludeFromToc: false,
-                        beforeToc: false
+                        data: chapter.content
                     }))
                 ]
             };
 
             // Generate EPUB
-            await Epub(options, outputPath);
+            await new Epub(options, outputPath).promise;
             console.log(`EPUB generated at: ${outputPath}`);
         } catch (err) {
             console.error('Failed to generate EPUB:', err);
@@ -175,7 +175,7 @@ class NovelCrawler {
             }
         }
         
-        await this.saveToEpub(); // Changed from saveToJson()
+        await this.saveToEpub();
         console.log('\nDone!');
     }
 }
