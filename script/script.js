@@ -2,6 +2,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const fs = require('fs');
 const path = require('path');
+const Epub = require('epub-gen-memory');
 
 class NovelCrawler {
     constructor(novelUrl) {
@@ -109,29 +110,46 @@ class NovelCrawler {
         };
     }
 
-    async saveToJson() {
+ async saveToEpub() {
         const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
-        const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.json`);
+        const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
         
         try {
             if (!fs.existsSync(path.dirname(outputPath))) {
                 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
             }
-            
-            // Create output with total chapter count
-            const output = {
-                ...this.novelInfo,
-                totalChapters: this.novelInfo.chapters.length, // Add total chapter count
-                chapters: this.novelInfo.chapters.map(chapter => ({
-                    title: chapter.title,
-                    content: chapter.content
-                }))
+
+            const options = {
+                title: this.novelInfo.title,
+                author: this.novelInfo.author,
+                cover: this.novelInfo.cover,
+                content: [
+                    {
+                        title: 'Metadata',
+                        data: `
+                            <h1>${this.novelInfo.title}</h1>
+                            <h2>by ${this.novelInfo.author}</h2>
+                            <p><strong>Status:</strong> ${this.novelInfo.status}</p>
+                            <p><strong>Genres:</strong> ${this.novelInfo.genres.join(', ')}</p>
+                            <p><strong>Source:</strong> ${this.novelInfo.source}</p>
+                            <h3>Description</h3>
+                            ${this.novelInfo.description}
+                        `
+                    },
+                    ...this.novelInfo.chapters.map(chapter => ({
+                        title: chapter.title,
+                        data: chapter.content,
+                        excludeFromToc: false,
+                        beforeToc: false
+                    }))
+                ]
             };
-            
-            fs.writeFileSync(outputPath, JSON.stringify(output, null, 2));
-            console.log(`Novel data saved to: ${outputPath}`);
+
+            // Generate EPUB
+            await Epub(options, outputPath);
+            console.log(`EPUB generated at: ${outputPath}`);
         } catch (err) {
-            console.error('Failed to save JSON:', err);
+            console.error('Failed to generate EPUB:', err);
             throw err;
         }
     }
@@ -157,7 +175,7 @@ class NovelCrawler {
             }
         }
         
-        await this.saveToJson();
+        await this.saveToEpub(); // Changed from saveToJson()
         console.log('\nDone!');
     }
 }
