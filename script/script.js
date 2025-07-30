@@ -145,7 +145,7 @@ async generateEPUB() {
     }
     
     // Generate EPUB
-    const outputPath = path.join(__dirname, '../results', `${this.novelInfo.title}.epub`);
+const outputPath = path.join(process.env.GITHUB_WORKSPACE || __dirname, 'results', `${this.novelInfo.title}.epub`);
     
     try {
         await new EPub(options, outputPath).promise;
