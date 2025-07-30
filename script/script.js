@@ -92,7 +92,9 @@ class NovelCrawler {
         if (content) {
             content = content.replace(/<iframe[^>]*>.*?<\/iframe>/g, '')
                            .replace(/<!--.*?-->/gs, '')
-                           .replace(/<p>\s*<\/p>/g, '');
+                           .replace(/<p>\s*<\/p>/g, '')     
+                           .replace(/<img[^>]*>/g, '')
+                           .replace(/<js[^>]*>/g, '');
         } else {
             content = 'Chapter content not found';
         }
