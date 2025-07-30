@@ -107,19 +107,12 @@ class NovelCrawler {
         };
     }
 
-  async generateEPUB() {
-        // Prepare options for EPUB generation
-        const options = {
-            title: this.novelInfo.title,
-            author: this.novelInfo.author,
-            description: this.novelInfo.description,
-            publisher: this.novelInfo.source,
-            cover: this.novelInfo.cover,
-            content: []
-        };
+    async generateEPUB() {
+        // First prepare the chapters array
+        const chapters = [];
         
-        // Add metadata
-        options.content.push({
+        // Add metadata as first chapter
+        chapters.push({
             title: 'Metadata',
             data: `
                 <h1>${this.novelInfo.title}</h1>
@@ -129,14 +122,16 @@ class NovelCrawler {
                 <p><strong>Source:</strong> ${this.novelInfo.source}</p>
                 <h3>Description</h3>
                 <p>${this.novelInfo.description}</p>
-            `
+            `,
+            excludeFromToc: false,
+            beforeToc: false
         });
         
-        // Add chapters
+        // Add all novel chapters
         for (const chapter of this.novelInfo.chapters) {
             console.log(`Fetching chapter: ${chapter.title}`);
             const chapterContent = await this.getChapterContent(chapter.url);
-            options.content.push({
+            chapters.push({
                 title: chapterContent.title,
                 data: chapterContent.content,
                 excludeFromToc: false,
@@ -144,11 +139,22 @@ class NovelCrawler {
             });
         }
         
+        // Prepare options for EPUB generation
+        const options = {
+            title: this.novelInfo.title,
+            author: this.novelInfo.author,
+            description: this.novelInfo.description,
+            publisher: this.novelInfo.source,
+            cover: this.novelInfo.cover,
+            content: chapters,  // Pass the prepared chapters array here
+            verbose: true  // Enable verbose logging for debugging
+        };
+        
         // Generate EPUB
         const outputPath = path.join(process.cwd(), 'results', `${this.novelInfo.title.replace(/[^a-z0-9]/gi, '_')}.epub`);
         
         try {
-            // Using epub-gen-memory correctly
+            // Generate EPUB buffer
             const epubBuffer = await epub(options);
             
             // Write the buffer to file
