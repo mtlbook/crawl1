@@ -1,0 +1,36 @@
+name: Novel Crawler
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'URL of the novel to crawl (e.g., https://novgo.net/my-house-of-horrors.html)'
+        required: true
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+
+      - name: Install dependencies
+        run: |
+          cd novel-crawler
+          npm install axios cheerio epub-gen
+
+      - name: Run crawler
+        run: |
+          cd novel-crawler
+          node script/script.js "${{ github.event.inputs.url }}"
+
+      - name: Upload EPUB
+        uses: actions/upload-artifact@v2
+        with:
+          name: novel-epub
+          path: novel-crawler/results/*.epub
