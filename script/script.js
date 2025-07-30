@@ -110,49 +110,77 @@ class NovelCrawler {
         };
     }
 
-   async saveToEpub() {
-        const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
-        const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
-        
-        try {
-            if (!fs.existsSync(path.dirname(outputPath))) {
-                fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-            }
+async saveToEpub() {
+    const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
+    const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
+    const coverPath = path.join(process.cwd(), 'results', 'cover.jpg');
+    
+    try {
+        // Create results directory if it doesn't exist
+        if (!fs.existsSync(path.dirname(outputPath))) {
+            fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+        }
 
-            const options = {
-                title: this.novelInfo.title,
-                author: this.novelInfo.author,
-                publisher: this.novelInfo.source,
-                cover: this.novelInfo.cover,
-                content: [
-                    {
-                        title: 'Metadata',
-                        data: `
+        // Download cover image if available
+        let localCoverPath = null;
+        if (this.novelInfo.cover) {
+            try {
+                const response = await axios.get(this.novelInfo.cover, {
+                    responseType: 'arraybuffer',
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                    }
+                });
+                fs.writeFileSync(coverPath, response.data);
+                localCoverPath = coverPath;
+                console.log('Cover image downloaded successfully');
+            } catch (err) {
+                console.warn('Failed to download cover image:', err.message);
+            }
+        }
+
+        const options = {
+            title: this.novelInfo.title,
+            author: this.novelInfo.author,
+            publisher: this.novelInfo.source,
+            cover: localCoverPath, // Use local path to downloaded cover
+            content: [
+                {
+                    title: 'Metadata',
+                    data: `
+                        <div style="text-align:center">
                             <h1>${this.novelInfo.title}</h1>
                             <h2>by ${this.novelInfo.author}</h2>
+                            ${localCoverPath ? `<img src="cover.jpg" style="max-width:100%; height:auto; margin:20px 0;"/>` : ''}
                             <p><strong>Status:</strong> ${this.novelInfo.status}</p>
                             <p><strong>Genres:</strong> ${this.novelInfo.genres.join(', ')}</p>
                             <p><strong>Source:</strong> ${this.novelInfo.source}</p>
                             <h3>Description</h3>
                             ${this.novelInfo.description}
-                        `,
-                        beforeToc: true
-                    },
-                    ...this.novelInfo.chapters.map(chapter => ({
-                        title: chapter.title,
-                        data: chapter.content
-                    }))
-                ]
-            };
+                        </div>
+                    `,
+                    beforeToc: true
+                },
+                ...this.novelInfo.chapters.map(chapter => ({
+                    title: chapter.title,
+                    data: chapter.content
+                }))
+            ]
+        };
 
-            // Generate EPUB
-            await new Epub(options, outputPath).promise;
-            console.log(`EPUB generated at: ${outputPath}`);
-        } catch (err) {
-            console.error('Failed to generate EPUB:', err);
-            throw err;
+        // Generate EPUB
+        await new Epub(options, outputPath).promise;
+        console.log(`EPUB generated at: ${outputPath}`);
+
+        // Clean up cover image
+        if (localCoverPath && fs.existsSync(localCoverPath)) {
+            fs.unlinkSync(localCoverPath);
         }
+    } catch (err) {
+        console.error('Failed to generate EPUB:', err);
+        throw err;
     }
+}
 
     async crawl() {
         await this.getNovelInfo();
