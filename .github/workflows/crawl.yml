@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       url:
-        description: 'URL of the novel to crawl (e.g., https://novgo.net/my-house-of-horrors.html)'
+        description: 'URL of the novel to crawl'
         required: true
 
 jobs:
@@ -19,18 +19,22 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Create results directory
+        run: mkdir -p results
+
       - name: Install dependencies
-        run: |
-          npm install --no-package-lock axios cheerio epub-gen
-          # Removed cd since we're working in root
+        run: npm install axios cheerio epub-gen
 
       - name: Run crawler
-        run: |
-          node script/script.js "${{ github.event.inputs.url }}"
+        run: node script/script.js "${{ github.event.inputs.url }}"
+
+      - name: List files (debug)
+        run: ls -R
 
       - name: Upload EPUB
         uses: actions/upload-artifact@v4
         with:
           name: novel-epub
-          path: results/*.epub  # Changed path to match your structure
+          path: results/*.epub
+          if-no-files-found: error
           retention-days: 5
