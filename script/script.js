@@ -2,7 +2,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const fs = require('fs');
 const path = require('path');
-const { EPub } = require('epub-gen');
+const { EPub } = require('@thorbenschmitt/epub-gen');
 
 class NovelCrawler {
     constructor(baseUrl) {
