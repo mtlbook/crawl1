@@ -2,7 +2,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const fs = require('fs');
 const path = require('path');
-const { EPub } = require('epub-gen-memory');
+const Epub = require('epub-gen');
 
 class NovelCrawler {
     constructor(novelUrl) {
@@ -110,95 +110,50 @@ class NovelCrawler {
         };
     }
 
-async saveToEpub() {
-    const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
-    const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
-    const tempCoverPath = path.join(process.cwd(), 'results', 'temp_cover.jpg');
-    
-    try {
-        if (!fs.existsSync(path.dirname(outputPath))) {
-            fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-        }
-
-        // Handle cover image
-        let coverOption = undefined;
-        if (this.novelInfo.cover) {
-            try {
-                const response = await axios.get(this.novelInfo.cover, {
-                    responseType: 'arraybuffer',
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                    }
-                });
-                fs.writeFileSync(tempCoverPath, response.data);
-                coverOption = tempCoverPath;
-                console.log('Cover image saved temporarily');
-            } catch (err) {
-                console.warn('Failed to process cover image:', err.message);
+   async saveToEpub() {
+        const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
+        const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
+        
+        try {
+            if (!fs.existsSync(path.dirname(outputPath))) {
+                fs.mkdirSync(path.dirname(outputPath), { recursive: true });
             }
+
+            const options = {
+                title: this.novelInfo.title,
+                author: this.novelInfo.author,
+                publisher: this.novelInfo.source,
+                cover: this.novelInfo.cover,
+                content: [
+                    {
+                        title: 'Metadata',
+                        data: `
+                            <h1>${this.novelInfo.title}</h1>
+                            <h2>by ${this.novelInfo.author}</h2>
+                            <p><strong>Status:</strong> ${this.novelInfo.status}</p>
+                            <p><strong>Genres:</strong> ${this.novelInfo.genres.join(', ')}</p>
+                            <p><strong>Source:</strong> ${this.novelInfo.source}</p>
+                            <h3>Description</h3>
+                            ${this.novelInfo.description}
+                        `,
+                        beforeToc: true
+                    },
+                    ...this.novelInfo.chapters.map(chapter => ({
+                        title: chapter.title,
+                        data: chapter.content
+                    }))
+                ]
+            };
+
+            // Generate EPUB
+            await new Epub(options, outputPath).promise;
+            console.log(`EPUB generated at: ${outputPath}`);
+        } catch (err) {
+            console.error('Failed to generate EPUB:', err);
+            throw err;
         }
-
-        // Prepare content chapters with required structure
-        const chapters = [
-            {
-                title: 'Metadata',
-                data: `
-                    <div style="text-align:center">
-                        <h1>${this.novelInfo.title}</h1>
-                        <h2>by ${this.novelInfo.author}</h2>
-                        ${coverOption ? `<img src="cover.jpg" style="max-height:400px; width:auto; margin:20px 0;"/>` : ''}
-                        <p><strong>Status:</strong> ${this.novelInfo.status}</p>
-                        <p><strong>Genres:</strong> ${this.novelInfo.genres.join(', ')}</p>
-                        <p><strong>Source:</strong> ${this.novelInfo.source}</p>
-                        <h3>Description</h3>
-                        ${this.novelInfo.description}
-                    </div>
-                `,
-                beforeToc: true,
-                excludeFromToc: true
-            },
-            ...this.novelInfo.chapters.map(chapter => ({
-                title: chapter.title || 'Untitled Chapter',
-                data: chapter.content || 'No content available',
-                excludeFromToc: false,
-                beforeToc: false
-            }))
-        ];
-
-        // Validate all chapters have required fields
-        const validatedChapters = chapters.map(chapter => ({
-            title: chapter.title,
-            data: chapter.data,
-            beforeToc: chapter.beforeToc || false,
-            excludeFromToc: chapter.excludeFromToc || false
-        }));
-
-        const options = {
-            title: this.novelInfo.title,
-            author: this.novelInfo.author,
-            publisher: this.novelInfo.source,
-            cover: coverOption,
-            content: validatedChapters,
-            version: 3
-        };
-
-        // Generate EPUB
-        const epub = new EPub(options, outputPath);
-        await epub.genEpub();
-        console.log(`EPUB successfully generated at: ${outputPath}`);
-
-        // Clean up temporary cover
-        if (coverOption && fs.existsSync(tempCoverPath)) {
-            fs.unlinkSync(tempCoverPath);
-        }
-    } catch (err) {
-        console.error('Failed to generate EPUB:', err);
-        if (fs.existsSync(tempCoverPath)) {
-            fs.unlinkSync(tempCoverPath);
-        }
-        throw err;
     }
-}
+
     async crawl() {
         await this.getNovelInfo();
         console.log(`Retrieved info for: ${this.novelInfo.title}`);
