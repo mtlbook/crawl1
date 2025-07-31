@@ -110,7 +110,21 @@ class NovelCrawler {
         };
     }
 
-   async saveToEpub() {
+    getCoverXhtmlContent() {
+        return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="en" xml:lang="en">
+    <head>
+        <title>${this.novelInfo.title}</title>
+        <link rel="stylesheet" type="text/css" href="css/epub.css" />
+    </head>
+    <body>
+        <img src="images/cover.png" alt="Cover Image" title="Cover Image" />
+    </body>
+</html>`;
+    }
+
+    async saveToEpub() {
         const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
         const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
         
@@ -125,6 +139,12 @@ class NovelCrawler {
                 publisher: this.novelInfo.source,
                 cover: this.novelInfo.cover,
                 content: [
+                    {
+                        title: 'Cover',
+                        data: this.getCoverXhtmlContent(),
+                        beforeToc: true,
+                        filename: 'cover.xhtml'
+                    },
                     {
                         title: 'Metadata',
                         data: `
@@ -142,7 +162,9 @@ class NovelCrawler {
                         title: chapter.title,
                         data: chapter.content
                     }))
-                ]
+                ],
+                appendChapterTitles: false,
+                verbose: true
             };
 
             // Generate EPUB
