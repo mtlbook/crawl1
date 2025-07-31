@@ -64,42 +64,38 @@ class NovelCrawler {
         }).text().trim();
     }
 
-    async downloadCover() {
-        if (!this.novelInfo.cover) {
-            console.log('No cover image to download.');
-            return;
-        }
-
-        const coverFileName = 'cover.jpg';
-        const coverDir = path.join(process.cwd(), 'results');
-        this.localCoverPath = path.join(coverDir, coverFileName);
-
-        try {
-            if (!fs.existsSync(coverDir)) {
-                fs.mkdirSync(coverDir, { recursive: true });
-            }
-
-            const response = await axios({
-                method: 'get',
-                url: this.novelInfo.cover,
-                responseType: 'stream'
-            });
-
-            const writer = fs.createWriteStream(this.localCoverPath);
-            response.data.pipe(writer);
-
-            return new Promise((resolve, reject) => {
-                writer.on('finish', resolve);
-                writer.on('error', (err) => {
-                    console.error('Error writing cover file:', err);
-                    reject(err);
-                });
-            });
-        } catch (error) {
-            console.error(`Error downloading cover image:`, error.message);
-            this.localCoverPath = ''; // Reset path on error
-        }
+async downloadCover() {
+    if (!this.novelInfo.cover) {
+        console.log('No cover image to download.');
+        return;
     }
+
+    const coverDir = path.join(process.cwd(), 'results', 'images'); // Changed to /images subfolder
+    this.localCoverPath = path.join(coverDir, 'cover.jpg');
+
+    try {
+        if (!fs.existsSync(coverDir)) {
+            fs.mkdirSync(coverDir, { recursive: true }); // Create /images directory
+        }
+
+        const response = await axios({
+            method: 'get',
+            url: this.novelInfo.cover,
+            responseType: 'stream'
+        });
+
+        const writer = fs.createWriteStream(this.localCoverPath);
+        response.data.pipe(writer);
+
+        return new Promise((resolve, reject) => {
+            writer.on('finish', resolve);
+            writer.on('error', reject);
+        });
+    } catch (error) {
+        console.error('Error downloading cover:', error);
+        this.localCoverPath = ''; // Reset if failed
+    }
+}
 
     async getChapterList(pageUrl = null) {
         const url = pageUrl || this.novelUrl;
@@ -160,7 +156,7 @@ class NovelCrawler {
             let coverImageHtml = '';
             if (this.localCoverPath && fs.existsSync(this.localCoverPath)) {
                 coverImageHtml = `<div style="text-align: center;">
-                                    <img src="cover.jpg" alt="Cover" style="width: 100%; max-width: 600px; height: auto;" />
+                                     <img src="../images/cover.jpg"  " alt="Cover" style="width: 100%; max-width: 600px; height: auto;" />
                                   </div>`;
             }
 
