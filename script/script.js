@@ -120,9 +120,12 @@ class NovelCrawler {
             }
 
  
-                coverImageHtml = `<div style="text-align: center;">
-             <img src="${this.novelInfo.cover}" alt="Cover Image" style="height:auto;width:100%;" title="Cover Image" />
-                                  </div>`;
+          let coverImageHtml = '';
+        if (this.novelInfo.cover) {
+            coverImageHtml = `<div style="text-align: center;">
+                <img src="${this.novelInfo.cover}" alt="Cover Image" style="height:auto;width:100%;" title="Cover Image" />
+            </div>`;
+        }
           
   const options = {
                 title: this.novelInfo.title,
@@ -177,7 +180,7 @@ class NovelCrawler {
             try {
                 const content = await this.getChapterContent(chapter.url);
                 chapter.content = content.content;
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 100));
             } catch (err) {
                 console.error(`\nFailed chapter ${i+1}:`, err.message);
                 chapter.content = 'Failed to load content';
