@@ -110,59 +110,55 @@ class NovelCrawler {
         };
     }
 
-   async saveToEpub() {
-        const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
-        const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
+async saveToEpub() {
+    const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
+    const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
+    const coverPath = path.join(process.cwd(), 'results', 'cover.jpg');
 
-        try {
-            if (!fs.existsSync(path.dirname(outputPath))) {
-                fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-            }
+    try {
+        if (!fs.existsSync(path.dirname(outputPath))) {
+            fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+        }
 
- 
-          let coverImageHtml = '';
+        // Download cover image only once
         if (this.novelInfo.cover) {
-            coverImageHtml = `<div style="text-align: center;">
-                <img src="${this.novelInfo.cover}" alt="Cover Image" style="height:auto;width:100%;" title="Cover Image" />
-            </div>`;
+            const response = await axios.get(this.novelInfo.cover, { responseType: 'arraybuffer' });
+            fs.writeFileSync(coverPath, response.data);
         }
-          
-  const options = {
-                title: this.novelInfo.title,
-                author: this.novelInfo.author,
-                publisher: this.novelInfo.source,
-                cover: this.novelInfo.cover,
-                content: [
-                    {
-                        title: 'Metadata',
-                        data: `
 
-                            <h1>${this.novelInfo.title}</h1>
-                             ${coverImageHtml}
-                            <h2>by ${this.novelInfo.author}</h2>
-                            <p><strong>Status:</strong> ${this.novelInfo.status}</p>
-                            <p><strong>Genres:</strong> ${this.novelInfo.genres.join(', ')}</p>
-                            <p><strong>Source:</strong> ${this.novelInfo.source}</p>
-                            <h3>Description</h3>
-                            ${this.novelInfo.description}
-                        `,
-                        beforeToc: true
-                    },
-                    ...this.novelInfo.chapters.map(chapter => ({
-                        title: chapter.title,
-                        data: chapter.content
-                    }))
-                ]
-            };
+        const options = {
+            title: this.novelInfo.title,
+            author: this.novelInfo.author,
+            publisher: this.novelInfo.source,
+            cover: coverPath, 
+            content: [
+                {
+                    title: 'Metadata',
+                    data: `
+                        <h1>${this.novelInfo.title}</h1>
+                        <div style="text-align: center;">
+                            <img src="cover.jpg" alt="Cover Image" style="max-width: 100%;" />
+                        </div>
+                        <h2>by ${this.novelInfo.author}</h2>
+                        <p><strong>Status:</strong> ${this.novelInfo.status}</p>
+                        <p><strong>Genres:</strong> ${this.novelInfo.genres.join(', ')}</p>
+                        <p><strong>Source:</strong> ${this.novelInfo.source}</p>
+                        <h3>Description</h3>
+                        ${this.novelInfo.description}
+                    `,
+                    beforeToc: true
+                },
+                ...this.novelInfo.chapters
+            ]
+        };
 
-            // Generate EPUB
-            await new Epub(options, outputPath).promise;
-            console.log(`EPUB generated at: ${outputPath}`);
-        } catch (err) {
-            console.error('Failed to generate EPUB:', err);
-            throw err;
-        }
+        await new Epub(options, outputPath).promise;
+        console.log(`EPUB generated at: ${outputPath}`);
+    } catch (err) {
+        console.error('Failed to generate EPUB:', err);
+        throw err;
     }
+}
 
     async crawl() {
         await this.getNovelInfo();
