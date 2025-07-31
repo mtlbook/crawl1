@@ -171,7 +171,9 @@ class NovelCrawler {
         <link rel="stylesheet" type="text/css" href="css/epub.css" />
     </head>
     <body>
-        <img src="${this.novelInfo.cover}" alt="Cover Image" style="height:800px;width:600px" title="Cover Image" />
+        <img src="${this.novelInfo.cover}" alt="Cover Image" style="height:auto;width:100%" title="Cover Image" />
+        <h1>${this.novelInfo.title}</h1>
+        <h2>by ${this.novelInfo.author}</h2>
     </body>
 </html>`;
     }
@@ -188,7 +190,7 @@ class NovelCrawler {
             title: this.novelInfo.title,
             author: this.novelInfo.author,
             publisher: this.novelInfo.source,
-            cover: this.novelInfo.cover,
+            cover: false,
             css: " body {                font-family: sans-serif;                line-height: 1.6;                margin: 2em;              }", 
             content: [
                 {
