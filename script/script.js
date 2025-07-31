@@ -189,7 +189,7 @@ class NovelCrawler {
             author: this.novelInfo.author,
             publisher: this.novelInfo.source,
             cover: this.novelInfo.cover,
-            css: "p {font-family:serif;}", 
+            css: " body {                font-family: sans-serif;                line-height: 1.6;                margin: 2em;              }", 
             content: [
                 {
                     title: 'Cover',
