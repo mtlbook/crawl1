@@ -119,7 +119,7 @@ class NovelCrawler {
         <link rel="stylesheet" type="text/css" href="css/epub.css" />
     </head>
     <body>
-        <img src="${this.novelInfo.cover}" alt="Cover Image" style="height:auto;width:100%;" title="Cover Image" />
+        <img src="cover.jpeg" alt="Cover Image" style="height:auto;width:100%;" title="Cover Image" />
     </body>
 </html>`;
     }
@@ -137,13 +137,17 @@ class NovelCrawler {
                 title: this.novelInfo.title,
                 author: this.novelInfo.author,
                 publisher: this.novelInfo.source,
-                cover: this.novelInfo.cover,
+                cover: false,
                 content: [
                     {
                         title: 'Cover',
                         data: this.getCoverXhtmlContent(),
                         beforeToc: true,
-                        filename: 'cover.xhtml'
+                        filename: 'cover.xhtml',
+                         images: [{
+                url: this.novelInfo.cover,
+                name: 'cover.jpeg'
+            }]
                     },
                     {
                         title: 'Metadata',
