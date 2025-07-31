@@ -175,7 +175,6 @@ class NovelCrawler {
             throw err;
         }
     }
-}
 
     async crawl() {
         await this.getNovelInfo();
