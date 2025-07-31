@@ -203,7 +203,7 @@ class NovelCrawler {
                     title: 'Information',
                     data: `
                         <h1>${this.novelInfo.title}</h1>
-                        <h2>by ${this.novelInfo.author}</h2>
+                        <p><strong>Author:</strong> ${this.novelInfo.author}</p>
                         <p><strong>Status:</strong> ${this.novelInfo.status}</p>
                         <p><strong>Genres:</strong> ${this.novelInfo.genres.join(', ')}</p>
                         <p><strong>Source:</strong> ${this.novelInfo.source}</p>
