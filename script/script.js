@@ -119,7 +119,7 @@ class NovelCrawler {
         <link rel="stylesheet" type="text/css" href="css/epub.css" />
     </head>
     <body>
-        <img src="images/cover.png" alt="Cover Image" title="Cover Image" />
+        <img src="cover.jpeg" alt="Cover Image" title="Cover Image" />
     </body>
 </html>`;
     }
