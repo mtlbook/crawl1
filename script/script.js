@@ -110,7 +110,7 @@ class NovelCrawler {
         };
     }
 
-    getCoverXhtmlContent() {
+   getCoverXhtmlContent() {
         return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="en" xml:lang="en">
@@ -119,7 +119,7 @@ class NovelCrawler {
         <link rel="stylesheet" type="text/css" href="css/epub.css" />
     </head>
     <body>
-        <img src="cover.jpeg" alt="Cover Image" title="Cover Image" />
+        <img src="../cover.jpeg" alt="Cover Image" title="${this.novelInfo.title}" />
     </body>
 </html>`;
     }
@@ -137,13 +137,13 @@ class NovelCrawler {
                 title: this.novelInfo.title,
                 author: this.novelInfo.author,
                 publisher: this.novelInfo.source,
-                cover: "cover.jpeg",
+                cover: this.novelInfo.cover,  // This will create cover.jpeg
                 content: [
                     {
                         title: 'Cover',
                         data: this.getCoverXhtmlContent(),
                         beforeToc: true,
-                        filename: 'cover.xhtml'
+                        filename: 'text/cover.xhtml'  // EPUB 3 standard location
                     },
                     {
                         title: 'Metadata',
@@ -160,10 +160,10 @@ class NovelCrawler {
                     },
                     ...this.novelInfo.chapters.map(chapter => ({
                         title: chapter.title,
-                        data: chapter.content
+                        data: chapter.content,
+                        filename: `text/chapter-${chapter.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.xhtml`
                     }))
                 ],
-                appendChapterTitles: false,
                 verbose: true
             };
 
@@ -175,6 +175,7 @@ class NovelCrawler {
             throw err;
         }
     }
+}
 
     async crawl() {
         await this.getNovelInfo();
