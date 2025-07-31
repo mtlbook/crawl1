@@ -216,6 +216,7 @@ class NovelCrawler {
                 }))
             ],
             appendChapterTitles: false,
+            numberChaptersInTOC: false,
             verbose: true
         };
 
