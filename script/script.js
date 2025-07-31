@@ -176,7 +176,7 @@ async saveToEpub() {
             try {
                 const content = await this.getChapterContent(chapter.url);
                 chapter.content = content.content;
-                await new Promise(resolve => setTimeout(resolve, 100));
+                await new Promise(resolve => setTimeout(resolve, 1000));
             } catch (err) {
                 console.error(`\nFailed chapter ${i+1}:`, err.message);
                 chapter.content = 'Failed to load content';
