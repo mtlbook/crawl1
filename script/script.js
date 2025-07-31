@@ -118,29 +118,49 @@ class NovelCrawler {
         }
     }
 
-    async getChapterContent(chapterUrl) {
-        const $ = await this.fetchWithRetry(new URL(chapterUrl));
-        
-        const chapterTitle = `${$('.col-xs-12 a.truyen-title').text().trim()} - ${$('.col-xs-12 h2').text().trim()}`;
-        
-        let content = $('#chapter-content').html() || 'Chapter content not found';
-        
-        // Clean up content
-        content = content
-            .replace(/<iframe[^>]*>.*?<\/iframe>/g, '')
-            .replace(/<!--.*?-->/gs, '')
-            .replace(/<p>\s*<\/p>/g, '')
-            .replace(/<img[^>]*>/g, '')
-            .replace(/<js[^>]*>/g, '')
-            .replace(/<script\b[^>]*>.*?<\/script>/gsi, '')
-            .replace(/<noscript\b[^>]*>.*?<\/noscript>/gsi, '')
-            .replace(/<div[^>]*class\s*=\s*["']ads[^>]*>.*?<\/div>/gsi, '')
-            .replace(/<div[^>]*>\s*<\/div>/gsi, '')
-                .replace(/<p>Source: .*?novlove\.com<\/p>/gi, '');
-        
-        return { title: chapterTitle, content };
-    }
+async getChapterContent(chapterUrl) {
+    const $ = await this.fetchWithRetry(new URL(chapterUrl));
+    
+    const chapterTitle = `${$('.col-xs-12 a.truyen-title').text().trim()} - ${$('.col-xs-12 h2').text().trim()}`;
+    
+    let content = $('#chapter-content').html() || 'Chapter content not found';
+    
+    // Clean up content and ensure proper HTML structure
+    content = `
+        <div class="chapter-content">
+            ${content
+                .replace(/<iframe[^>]*>.*?<\/iframe>/g, '')
+                .replace(/<!--.*?-->/gs, '')
+                .replace(/<p>\s*<\/p>/g, '')
+                .replace(/<img[^>]*>/g, '')
+                .replace(/<js[^>]*>/g, '')
+                .replace(/<script\b[^>]*>.*?<\/script>/gsi, '')
+                .replace(/<noscript\b[^>]*>.*?<\/noscript>/gsi, '')
+                .replace(/<div[^>]*class\s*=\s*["']ads[^>]*>.*?<\/div>/gsi, '')
+                .replace(/<div[^>]*>\s*<\/div>/gsi, '')
+                .replace(/<p>Source: .*?novlove\.com<\/p>/gi, '')
+            }
+        </div>`;
+    
+    return { 
+        title: chapterTitle, 
+        content: this.wrapChapterInValidHtml(content) 
+    };
+}
 
+wrapChapterInValidHtml(content) {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE html>
+    <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+    <head>
+        <title>${this.novelInfo.title}</title>
+        <link rel="stylesheet" type="text/css" href="../css/epub.css" />
+    </head>
+    <body>
+        ${content}
+    </body>
+    </html>`;
+}
     async downloadChaptersParallel() {
         const { concurrency } = this.options;
         const chapters = this.novelInfo.chapters;
@@ -175,7 +195,23 @@ class NovelCrawler {
     </body>
 </html>`;
     }
-
+    
+const cssContent = `
+body {
+    margin: 1em;
+    padding: 0;
+    font-family: serif;
+    line-height: 1.5;
+}
+.chapter-content {
+    margin: 0 auto;
+    max-width: 800px;
+}
+.chapter-content p {
+    margin: 1em 0;
+    text-align: justify;
+}`;
+    
     async saveToEpub() {
         const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
         const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
@@ -214,6 +250,7 @@ class NovelCrawler {
                     data: chapter.content
                 }))
             ],
+            css: cssContent,
             appendChapterTitles: false,
             verbose: true
         };
