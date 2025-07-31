@@ -171,7 +171,7 @@ class NovelCrawler {
         <link rel="stylesheet" type="text/css" href="css/epub.css" />
     </head>
     <body>
-        ${this.novelInfo.cover ? `<img src="${this.novelInfo.cover}" alt="Cover Image" style="height:auto;width:100%" title="Cover Image" />` : ''}
+        <img src="${this.novelInfo.cover}" alt="Cover Image" style="height:auto;width:100%" title="Cover Image" />
         <h1>${this.novelInfo.title}</h1>
         <h2>by ${this.novelInfo.author}</h2>
     </body>
