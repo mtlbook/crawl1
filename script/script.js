@@ -168,7 +168,6 @@ class NovelCrawler {
                 title: this.novelInfo.title,
                 author: this.novelInfo.author,
                 publisher: this.novelInfo.source,
-                cover: this.localCoverPath, 
                 content: [
                     {
                         title: 'Metadata',
