@@ -137,14 +137,14 @@ class NovelCrawler {
                 title: this.novelInfo.title,
                 author: this.novelInfo.author,
                 publisher: this.novelInfo.source,
-                cover: false,
+                cover: this.novelInfo.cover,
                 content: [
                     {
                         title: 'Cover',
                         data: this.getCoverXhtmlContent(),
                         beforeToc: true,
                         filename: 'cover.xhtml',
-                         images: [{
+                          images: [{
                 url: this.novelInfo.cover,
                 name: 'cover.jpeg'
             }]
@@ -194,7 +194,7 @@ class NovelCrawler {
             try {
                 const content = await this.getChapterContent(chapter.url);
                 chapter.content = content.content;
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 100));
             } catch (err) {
                 console.error(`\nFailed chapter ${i+1}:`, err.message);
                 chapter.content = 'Failed to load content';
