@@ -118,28 +118,40 @@ class NovelCrawler {
         }
     }
 
-    async getChapterContent(chapterUrl) {
-        const $ = await this.fetchWithRetry(new URL(chapterUrl));
-        
-        const chapterTitle = `${$('.col-xs-12 a.truyen-title').text().trim()} - ${$('.col-xs-12 h2').text().trim()}`;
-        
-        let content = $('#chapter-content').html() || 'Chapter content not found';
-        
-        // Clean up content
-        content = content
-            .replace(/<iframe[^>]*>.*?<\/iframe>/g, '')
-            .replace(/<!--.*?-->/gs, '')
-            .replace(/<p>\s*<\/p>/g, '')
-            .replace(/<img[^>]*>/g, '')
-            .replace(/<js[^>]*>/g, '')
-            .replace(/<script\b[^>]*>.*?<\/script>/gsi, '')
-            .replace(/<noscript\b[^>]*>.*?<\/noscript>/gsi, '')
-            .replace(/<div[^>]*class\s*=\s*["']ads[^>]*>.*?<\/div>/gsi, '')
-            .replace(/<div[^>]*>\s*<\/div>/gsi, '')
-                .replace(/<p>Source: .*?novlove\.com<\/p>/gi, '');
-        
-        return { title: chapterTitle, content };
-    }
+  async getChapterContent(chapterUrl) {
+    const $ = await this.fetchWithRetry(new URL(chapterUrl));
+
+    const chapterTitle = `${$('.col-xs-12 a.truyen-title').text().trim()} - ${$('.col-xs-12 h2').text().trim()}`;
+
+    let content = $('#chapter-content');
+
+    // Find and fix nested block-level elements within paragraphs
+    content.find('p').each((i, p) => {
+        const p_cheerio = $(p);
+        p_cheerio.children('div, p, h1, h2, h3, h4, h5, h6, blockquote, pre').each((j, block) => {
+            const block_cheerio = $(block);
+            p_cheerio.before(block_cheerio.clone()); // Move the block element before the paragraph
+            block_cheerio.remove(); // Remove the original block element from within the paragraph
+        });
+    });
+
+    content = content.html() || 'Chapter content not found';
+
+    // Clean up content (your existing cleaning logic)
+    content = content
+        .replace(/<iframe[^>]*>.*?<\/iframe>/g, '')
+        .replace(/<!--.*?-->/gs, '')
+        .replace(/<p>\s*<\/p>/g, '')
+        .replace(/<img[^>]*>/g, '')
+        .replace(/<js[^>]*>/g, '')
+        .replace(/<script\b[^>]*>.*?<\/script>/gsi, '')
+        .replace(/<noscript\b[^>]*>.*?<\/noscript>/gsi, '')
+        .replace(/<div[^>]*class\s*=\s*["']ads[^>]*>.*?<\/div>/gsi, '')
+        .replace(/<div[^>]*>\s*<\/div>/gsi, '')
+        .replace(/<p>Source: .*?novlove\.com<\/p>/gi, '');
+
+    return { title: chapterTitle, content };
+}
 
     async downloadChaptersParallel() {
         const { concurrency } = this.options;
