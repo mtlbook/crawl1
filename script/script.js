@@ -160,7 +160,7 @@ class NovelCrawler {
             let coverImageHtml = '';
             if (this.localCoverPath && fs.existsSync(this.localCoverPath)) {
                 coverImageHtml = `<div style="text-align: center;">
-                                    <img src="../images/cover.jpg" alt="Cover" style="width: 100%; max-width: 600px; height: auto;" />
+                                    <img src="cover.jpg" alt="Cover" style="width: 100%; max-width: 600px; height: auto;" />
                                   </div>`;
             }
 
