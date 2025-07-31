@@ -1,4 +1,3 @@
-const axios = require('axios');
 const cheerio = require('cheerio');
 const fs = require('fs');
 const path = require('path');
@@ -20,14 +19,27 @@ class NovelCrawler {
     }
 
     async fetchPage(url) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
         try {
-            const response = await axios.get(url.toString(), {
+            const response = await fetch(url.toString(), {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                }
+                },
+                signal: controller.signal
             });
-            return cheerio.load(response.data);
+            
+            clearTimeout(timeout);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const html = await response.text();
+            return cheerio.load(html);
         } catch (error) {
+            clearTimeout(timeout);
             console.error(`Error fetching ${url}:`, error.message);
             throw error;
         }
@@ -72,7 +84,7 @@ class NovelCrawler {
             const chapterTitle = $(el).find('.chapter-text').text().trim() || $(el).attr('title');
             this.novelInfo.chapters.push({
                 title: chapterTitle,
-                url: chapterUrl.toString() // Only used temporarily for fetching
+                url: chapterUrl.toString()
             });
         });
         
@@ -96,10 +108,10 @@ class NovelCrawler {
                            .replace(/<p>\s*<\/p>/g, '')     
                            .replace(/<img[^>]*>/g, '')
                            .replace(/<js[^>]*>/g, '')
-                  .replace(/<script\b[^>]*>.*?<\/script>/gsi, '')
-                .replace(/<noscript\b[^>]*>.*?<\/noscript>/gsi, '')
-                            .replace(/<div[^>]*class\s*=\s*["']ads[^>]*>.*?<\/div>/gsi, '')
-                            .replace(/<div[^>]*>\s*<\/div>/gsi, '');
+                           .replace(/<script\b[^>]*>.*?<\/script>/gsi, '')
+                           .replace(/<noscript\b[^>]*>.*?<\/noscript>/gsi, '')
+                           .replace(/<div[^>]*class\s*=\s*["']ads[^>]*>.*?<\/div>/gsi, '')
+                           .replace(/<div[^>]*>\s*<\/div>/gsi, '');
         } else {
             content = 'Chapter content not found';
         }
@@ -146,7 +158,7 @@ class NovelCrawler {
                         filename: 'cover.xhtml'
                     },
                     {
-                        title: 'Metadata',
+                        title: 'Information',
                         data: `
                             <h1>${this.novelInfo.title}</h1>
                             <h2>by ${this.novelInfo.author}</h2>
@@ -167,7 +179,6 @@ class NovelCrawler {
                 verbose: true
             };
 
-            // Generate EPUB
             await new Epub(options, outputPath).promise;
             console.log(`EPUB generated at: ${outputPath}`);
         } catch (err) {
