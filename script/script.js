@@ -196,6 +196,15 @@ wrapChapterInValidHtml(content) {
 </html>`;
     }
     
+    
+    async saveToEpub() {
+        const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
+        const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
+        
+        if (!fs.existsSync(path.dirname(outputPath))) {
+            fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+        }
+
 const cssContent = `
 body {
     margin: 1em;
@@ -211,15 +220,7 @@ body {
     margin: 1em 0;
     text-align: justify;
 }`;
-    
-    async saveToEpub() {
-        const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
-        const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
         
-        if (!fs.existsSync(path.dirname(outputPath))) {
-            fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-        }
-
         const options = {
             title: this.novelInfo.title,
             author: this.novelInfo.author,
