@@ -147,32 +147,36 @@ class NovelCrawler {
         };
     }
 
-  async saveToEpub() {
+   async saveToEpub() {
         const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
         const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
-        
+
         try {
             if (!fs.existsSync(path.dirname(outputPath))) {
                 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
             }
 
-
             let coverImageHtml = '';
+            const additionalFiles = [];
+
             if (this.localCoverPath && fs.existsSync(this.localCoverPath)) {
-                const coverFilename = path.basename(this.localCoverPath);
-                // The src path is relative to the content files inside the EPUB structure
+                additionalFiles.push({
+                    type: 'image',
+                    path: this.localCoverPath, // Path to your local downloaded file
+                    href: 'cover.jpeg'        // Desired path and filename inside the EPUB
+                });
+
                 coverImageHtml = `<div style="text-align: center;">
-                                    <img src="../images/${coverFilename}" alt="Cover" style="width: 100%; max-width: 600px; height: auto;" />
+                                    <img src="cover.jpeg" alt="Cover" style="width: 100%; max-width: 600px; height: auto;" />
                                   </div>`;
             }
-            // --- End of new code ---
 
             const options = {
                 title: this.novelInfo.title,
                 author: this.novelInfo.author,
                 publisher: this.novelInfo.source,
-                // This option is still crucial! It tells epub-gen to include the image file in the EPUB package.
-                cover: this.localCoverPath, 
+                cover: this.localCoverPath,
+                files: additionalFiles,
                 content: [
                     {
                         title: 'Metadata',
@@ -203,7 +207,7 @@ class NovelCrawler {
             throw err;
         }
     }
-
+    
     async crawl() {
         await this.getNovelInfo();
         console.log(`Retrieved info for: ${this.novelInfo.title}`);
