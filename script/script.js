@@ -137,7 +137,7 @@ class NovelCrawler {
                 title: this.novelInfo.title,
                 author: this.novelInfo.author,
                 publisher: this.novelInfo.source,
-                cover: this.novelInfo.cover,
+                cover: false,
                 content: [
                     {
                         title: 'Cover',
