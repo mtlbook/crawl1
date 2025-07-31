@@ -191,7 +191,7 @@ class NovelCrawler {
             author: this.novelInfo.author,
             publisher: this.novelInfo.source,
             cover: false,
-            css: " body {                font-family: sans-serif;                line-height: 1.6;                margin: 2em;              }", 
+            css: "body {font-family: sans-serif;line-height: 1.6;font-size: 1.1em;}", 
             content: [
                 {
                     title: 'Cover',
