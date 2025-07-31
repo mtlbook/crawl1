@@ -36,29 +36,29 @@ class NovelCrawler {
 
     async getNovelInfo() {
         const $ = await this.fetchPage(this.novelUrl);
-
+        
         this.novelInfo.title = $('.col-xs-12.col-sm-8.col-md-8.desc h3.title').text().trim();
-
+        
         const descElement = $('.col-xs-12.col-sm-8.col-md-8.desc .desc-text');
         this.novelInfo.description = descElement.html() || descElement.text().trim();
-
+        
         const coverPath = $('.col-xs-12.col-sm-4.col-md-4.info-holder .book img').attr('src');
         if (coverPath) {
             this.novelInfo.cover = new URL(coverPath, this.novelUrl).toString();
         }
-
+        
         const authors = [];
         $('.info div:has(h3:contains("Author:")) a').each((i, el) => {
             authors.push($(el).text().trim());
         });
         this.novelInfo.author = authors.join(', ');
-
+        
         $('.info div:has(h3:contains("Genre:")) a').each((i, el) => {
             this.novelInfo.genres.push($(el).text().trim());
         });
-
+        
         this.novelInfo.status = $('.info div:has(h3:contains("Status:")) a').text().trim();
-
+        
         this.novelInfo.source = $('.info div:has(h3:contains("Source:"))').contents().filter(function() {
             return this.nodeType === 3;
         }).text().trim();
@@ -71,7 +71,8 @@ class NovelCrawler {
         }
 
         const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
-        const coverFileName = `${sanitizedTitle}_cover.jpg`;
+        // Force the downloaded file to have a .jpeg extension
+        const coverFileName = `${sanitizedTitle}_cover.jpeg`; 
         const coverDir = path.join(process.cwd(), 'results');
         this.localCoverPath = path.join(coverDir, coverFileName);
 
@@ -91,7 +92,10 @@ class NovelCrawler {
 
             return new Promise((resolve, reject) => {
                 writer.on('finish', resolve);
-                writer.on('error', reject);
+                writer.on('error', (err) => {
+                    console.error('Error writing cover file:', err);
+                    reject(err);
+                });
             });
         } catch (error) {
             console.error(`Error downloading cover image:`, error.message);
@@ -99,20 +103,19 @@ class NovelCrawler {
         }
     }
 
-
     async getChapterList(pageUrl = null) {
         const url = pageUrl || this.novelUrl;
         const $ = await this.fetchPage(url);
-
+        
         $('.list-chapter li a').each((i, el) => {
             const chapterUrl = new URL($(el).attr('href'), this.novelUrl);
             const chapterTitle = $(el).find('.chapter-text').text().trim() || $(el).attr('title');
             this.novelInfo.chapters.push({
                 title: chapterTitle,
-                url: chapterUrl.toString() // Only used temporarily for fetching
+                url: chapterUrl.toString()
             });
         });
-
+        
         const nextPageLink = $('.pagination li.next a').attr('href');
         if (nextPageLink) {
             await this.getChapterList(new URL(nextPageLink, this.novelUrl));
@@ -121,16 +124,16 @@ class NovelCrawler {
 
     async getChapterContent(chapterUrl) {
         const $ = await this.fetchPage(new URL(chapterUrl));
-
-        const chapterTitle = $('.col-xs-12 a.truyen-title').text().trim() + ' - ' +
+        
+        const chapterTitle = $('.col-xs-12 a.truyen-title').text().trim() + ' - ' + 
                            $('.col-xs-12 h2').text().trim();
-
+        
         let content = $('#chapter-content').html();
-
+        
         if (content) {
             content = content.replace(/<iframe[^>]*>.*?<\/iframe>/g, '')
                            .replace(/<!--.*?-->/gs, '')
-                           .replace(/<p>\s*<\/p>/g, '')
+                           .replace(/<p>\s*<\/p>/g, '')     
                            .replace(/<img[^>]*>/g, '')
                            .replace(/<js[^>]*>/g, '')
                   .replace(/<script\b[^>]*>.*?<\/script>/gsi, '')
@@ -140,7 +143,7 @@ class NovelCrawler {
         } else {
             content = 'Chapter content not found';
         }
-
+        
         return {
             title: chapterTitle,
             content: content
@@ -150,24 +153,22 @@ class NovelCrawler {
    async saveToEpub() {
         const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
         const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
-
+        
         try {
             if (!fs.existsSync(path.dirname(outputPath))) {
                 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
             }
 
+            // Create an HTML snippet for the cover image if it was downloaded
             let coverImageHtml = '';
-            const additionalFiles = [];
-
+            // Check if localCoverPath exists and the file actually exists
             if (this.localCoverPath && fs.existsSync(this.localCoverPath)) {
-                additionalFiles.push({
-                    type: 'image',
-                    path: this.localCoverPath, // Path to your local downloaded file
-                    href: 'cover.jpeg'        // Desired path and filename inside the EPUB
-                });
-
+                // epub-gen renames the cover to "cover.ext" and places it in "images/"
+                // So, the internal EPUB path will be "images/cover.jpeg"
+                // Relative to a content HTML file (e.g., in "xhtml/"), it's "../images/cover.jpeg"
+                const internalEpubCoverPath = 'cover.jpeg'; 
                 coverImageHtml = `<div style="text-align: center;">
-                                    <img src="cover.jpeg" alt="Cover" style="width: 100%; max-width: 600px; height: auto;" />
+                                    <img src="../images/${internalEpubCoverPath}" alt="Cover" style="width: 100%; max-width: 600px; height: auto;" />
                                   </div>`;
             }
 
@@ -175,11 +176,13 @@ class NovelCrawler {
                 title: this.novelInfo.title,
                 author: this.novelInfo.author,
                 publisher: this.novelInfo.source,
-                cover: this.localCoverPath,
-                files: additionalFiles,
+                // This option is CRUCIAL! It tells epub-gen to include the image file
+                // and rename it to cover.jpeg in the images/ folder of the EPUB.
+                cover: this.localCoverPath, 
                 content: [
                     {
                         title: 'Metadata',
+                        // Prepend the cover image HTML to the metadata page
                         data: `
                             ${coverImageHtml}
                             <h1>${this.novelInfo.title}</h1>
@@ -207,31 +210,32 @@ class NovelCrawler {
             throw err;
         }
     }
-    
+
     async crawl() {
         await this.getNovelInfo();
         console.log(`Retrieved info for: ${this.novelInfo.title}`);
-
+        
+        // Download the cover after getting info, ensuring it's a .jpeg
         await this.downloadCover();
-        console.log('Downloaded cover image.');
-
+        
         await this.getChapterList();
         console.log(`Found ${this.novelInfo.chapters.length} chapters`);
-
+        
         for (let i = 0; i < this.novelInfo.chapters.length; i++) {
             const chapter = this.novelInfo.chapters[i];
             process.stdout.write(`Fetching ${i+1}/${this.novelInfo.chapters.length}\r`);
-
+            
             try {
                 const content = await this.getChapterContent(chapter.url);
                 chapter.content = content.content;
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // A small delay to be polite to the source server
+                await new Promise(resolve => setTimeout(resolve, 500));
             } catch (err) {
                 console.error(`\nFailed chapter ${i+1}:`, err.message);
                 chapter.content = 'Failed to load content';
             }
         }
-
+        
         await this.saveToEpub();
         console.log('\nDone!');
     }
