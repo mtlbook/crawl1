@@ -70,9 +70,7 @@ class NovelCrawler {
             return;
         }
 
-        const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
-        // Force the downloaded file to have a .jpeg extension
-        const coverFileName = `${sanitizedTitle}_cover.jpeg`; 
+        const coverFileName = 'cover.jpg';
         const coverDir = path.join(process.cwd(), 'results');
         this.localCoverPath = path.join(coverDir, coverFileName);
 
@@ -159,16 +157,10 @@ class NovelCrawler {
                 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
             }
 
-            // Create an HTML snippet for the cover image if it was downloaded
             let coverImageHtml = '';
-            // Check if localCoverPath exists and the file actually exists
             if (this.localCoverPath && fs.existsSync(this.localCoverPath)) {
-                // epub-gen renames the cover to "cover.ext" and places it in "images/"
-                // So, the internal EPUB path will be "images/cover.jpeg"
-                // Relative to a content HTML file (e.g., in "xhtml/"), it's "../images/cover.jpeg"
-                const internalEpubCoverPath = 'cover.jpeg'; 
                 coverImageHtml = `<div style="text-align: center;">
-                                    <img src="../images/${internalEpubCoverPath}" alt="Cover" style="width: 100%; max-width: 600px; height: auto;" />
+                                    <img src="../images/cover.jpg" alt="Cover" style="width: 100%; max-width: 600px; height: auto;" />
                                   </div>`;
             }
 
@@ -176,13 +168,10 @@ class NovelCrawler {
                 title: this.novelInfo.title,
                 author: this.novelInfo.author,
                 publisher: this.novelInfo.source,
-                // This option is CRUCIAL! It tells epub-gen to include the image file
-                // and rename it to cover.jpeg in the images/ folder of the EPUB.
                 cover: this.localCoverPath, 
                 content: [
                     {
                         title: 'Metadata',
-                        // Prepend the cover image HTML to the metadata page
                         data: `
                             ${coverImageHtml}
                             <h1>${this.novelInfo.title}</h1>
@@ -202,7 +191,6 @@ class NovelCrawler {
                 ]
             };
 
-            // Generate EPUB
             await new Epub(options, outputPath).promise;
             console.log(`EPUB generated at: ${outputPath}`);
         } catch (err) {
@@ -215,7 +203,6 @@ class NovelCrawler {
         await this.getNovelInfo();
         console.log(`Retrieved info for: ${this.novelInfo.title}`);
         
-        // Download the cover after getting info, ensuring it's a .jpeg
         await this.downloadCover();
         
         await this.getChapterList();
@@ -228,7 +215,6 @@ class NovelCrawler {
             try {
                 const content = await this.getChapterContent(chapter.url);
                 chapter.content = content.content;
-                // A small delay to be polite to the source server
                 await new Promise(resolve => setTimeout(resolve, 500));
             } catch (err) {
                 console.error(`\nFailed chapter ${i+1}:`, err.message);
