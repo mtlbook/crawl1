@@ -135,7 +135,8 @@ class NovelCrawler {
             .replace(/<script\b[^>]*>.*?<\/script>/gsi, '')
             .replace(/<noscript\b[^>]*>.*?<\/noscript>/gsi, '')
             .replace(/<div[^>]*class\s*=\s*["']ads[^>]*>.*?<\/div>/gsi, '')
-            .replace(/<div[^>]*>\s*<\/div>/gsi, '');
+            .replace(/<div[^>]*>\s*<\/div>/gsi, '')
+                .replace(/<p>Source: .*?novlove\.com<\/p>/gi, '');
         
         return { title: chapterTitle, content };
     }
