@@ -17,7 +17,6 @@ class NovelCrawler {
             source: '',
             chapters: []
         };
-        this.localCoverPath = '';
     }
 
     async fetchPage(url) {
@@ -64,44 +63,6 @@ class NovelCrawler {
         }).text().trim();
     }
 
-    async downloadCover() {
-        if (!this.novelInfo.cover) {
-            console.log('No cover image to download.');
-            return;
-        }
-
-        const coverFileName = 'cover.jpg';
-        const coverDir = path.join(process.cwd(), 'results');
-        this.localCoverPath = path.join(coverDir, coverFileName);
-
-        try {
-            if (!fs.existsSync(coverDir)) {
-                fs.mkdirSync(coverDir, { recursive: true });
-            }
-
-            const response = await axios({
-                method: 'get',
-                url: this.novelInfo.cover,
-                responseType: 'stream'
-            });
-
-            const writer = fs.createWriteStream(this.localCoverPath);
-            response.data.pipe(writer);
-
-            return new Promise((resolve, reject) => {
-                writer.on('finish', resolve);
-                writer.on('error', (err) => {
-                    console.error('Error writing cover file:', err);
-                    reject(err);
-                });
-            });
-        } catch (error) {
-            console.error(`Error downloading cover image:`, error.message);
-            this.localCoverPath = ''; // Reset path on error
-        }
-    }
-
-
     async getChapterList(pageUrl = null) {
         const url = pageUrl || this.novelUrl;
         const $ = await this.fetchPage(url);
@@ -111,7 +72,7 @@ class NovelCrawler {
             const chapterTitle = $(el).find('.chapter-text').text().trim() || $(el).attr('title');
             this.novelInfo.chapters.push({
                 title: chapterTitle,
-                url: chapterUrl.toString()
+                url: chapterUrl.toString() // Only used temporarily for fetching
             });
         });
         
@@ -158,23 +119,15 @@ class NovelCrawler {
                 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
             }
 
-            let coverImageHtml = '';
-            if (this.localCoverPath && fs.existsSync(this.localCoverPath)) {
-                coverImageHtml = `<div style="text-align: center;">
-                                     <img src="cover.jpg"  " alt="Cover" style="width: 100%; max-width: 600px; height: auto;" />
-                                  </div>`;
-            }
-
             const options = {
                 title: this.novelInfo.title,
                 author: this.novelInfo.author,
                 publisher: this.novelInfo.source,
-                cover: "cover.jpeg", 
+                cover: this.novelInfo.cover,
                 content: [
                     {
                         title: 'Metadata',
                         data: `
-                            ${coverImageHtml}
                             <h1>${this.novelInfo.title}</h1>
                             <h2>by ${this.novelInfo.author}</h2>
                             <p><strong>Status:</strong> ${this.novelInfo.status}</p>
@@ -192,6 +145,7 @@ class NovelCrawler {
                 ]
             };
 
+            // Generate EPUB
             await new Epub(options, outputPath).promise;
             console.log(`EPUB generated at: ${outputPath}`);
         } catch (err) {
@@ -204,8 +158,6 @@ class NovelCrawler {
         await this.getNovelInfo();
         console.log(`Retrieved info for: ${this.novelInfo.title}`);
         
-        await this.downloadCover();
-        
         await this.getChapterList();
         console.log(`Found ${this.novelInfo.chapters.length} chapters`);
         
@@ -216,7 +168,7 @@ class NovelCrawler {
             try {
                 const content = await this.getChapterContent(chapter.url);
                 chapter.content = content.content;
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => setTimeout(resolve, 1000));
             } catch (err) {
                 console.error(`\nFailed chapter ${i+1}:`, err.message);
                 chapter.content = 'Failed to load content';
