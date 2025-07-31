@@ -110,8 +110,36 @@ class NovelCrawler {
         };
     }
 
-    getCoverXhtmlContent() {
-        return `<?xml version="1.0" encoding="UTF-8"?>
+  async downloadCoverImage() {
+    if (!this.novelInfo.cover) return;
+    
+    try {
+        const response = await axios.get(this.novelInfo.cover, {
+            responseType: 'arraybuffer',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+        });
+        
+        // Create temp directory if it doesn't exist
+        const tempDir = path.join(process.cwd(), 'temp');
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+        }
+        
+        // Save the image
+        this.localCoverPath = path.join(tempDir, 'cover.jpeg');
+        fs.writeFileSync(this.localCoverPath, response.data);
+        
+        console.log('Cover image downloaded successfully');
+    } catch (error) {
+        console.error('Failed to download cover image:', error.message);
+        this.localCoverPath = null;
+    }
+}
+
+getCoverXhtmlContent() {
+    return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="en" xml:lang="en">
     <head>
@@ -122,88 +150,90 @@ class NovelCrawler {
         <img src="cover.jpeg" alt="Cover Image" style="height:auto;width:100%;" title="Cover Image" />
     </body>
 </html>`;
-    }
+}
 
-    async saveToEpub() {
-        const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
-        const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
+async saveToEpub() {
+    const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
+    const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
+    
+    try {
+        if (!fs.existsSync(path.dirname(outputPath))) {
+            fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+        }
+
+        const options = {
+            title: this.novelInfo.title,
+            author: this.novelInfo.author,
+            publisher: this.novelInfo.source,
+            cover: this.localCoverPath, // Use the locally downloaded cover
+            content: [
+                {
+                    title: 'Cover',
+                    data: this.getCoverXhtmlContent(),
+                    beforeToc: true,
+                    filename: 'cover.xhtml'
+                },
+                {
+                    title: 'Metadata',
+                    data: `
+                        <h1>${this.novelInfo.title}</h1>
+                        <h2>by ${this.novelInfo.author}</h2>
+                        <p><strong>Status:</strong> ${this.novelInfo.status}</p>
+                        <p><strong>Genres:</strong> ${this.novelInfo.genres.join(', ')}</p>
+                        <p><strong>Source:</strong> ${this.novelInfo.source}</p>
+                        <h3>Description</h3>
+                        ${this.novelInfo.description}
+                    `,
+                    beforeToc: true
+                },
+                ...this.novelInfo.chapters.map(chapter => ({
+                    title: chapter.title,
+                    data: chapter.content
+                }))
+            ],
+            appendChapterTitles: false,
+            verbose: true
+        };
+
+        // Generate EPUB
+        await new Epub(options, outputPath).promise;
+        console.log(`EPUB generated at: ${outputPath}`);
+        
+        // Clean up temporary cover image
+        if (this.localCoverPath && fs.existsSync(this.localCoverPath)) {
+            fs.unlinkSync(this.localCoverPath);
+        }
+    } catch (err) {
+        console.error('Failed to generate EPUB:', err);
+        throw err;
+    }
+}
+
+async crawl() {
+    await this.getNovelInfo();
+    console.log(`Retrieved info for: ${this.novelInfo.title}`);
+    
+    await this.downloadCoverImage(); // Download cover before generating EPUB
+    
+    await this.getChapterList();
+    console.log(`Found ${this.novelInfo.chapters.length} chapters`);
+    
+    for (let i = 0; i < this.novelInfo.chapters.length; i++) {
+        const chapter = this.novelInfo.chapters[i];
+        process.stdout.write(`Fetching ${i+1}/${this.novelInfo.chapters.length}\r`);
         
         try {
-            if (!fs.existsSync(path.dirname(outputPath))) {
-                fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-            }
-
-            const options = {
-                title: this.novelInfo.title,
-                author: this.novelInfo.author,
-                publisher: this.novelInfo.source,
-                cover: false,
-                content: [
-                    {
-                        title: 'Cover',
-                        data: this.getCoverXhtmlContent(),
-                        beforeToc: true,
-                        filename: 'cover.xhtml',
-                          images: [{
-                url: this.novelInfo.cover,
-                name: 'cover.jpeg'
-            }]
-                    },
-                    {
-                        title: 'Metadata',
-                        data: `
-                            <h1>${this.novelInfo.title}</h1>
-                            <h2>by ${this.novelInfo.author}</h2>
-                            <p><strong>Status:</strong> ${this.novelInfo.status}</p>
-                            <p><strong>Genres:</strong> ${this.novelInfo.genres.join(', ')}</p>
-                            <p><strong>Source:</strong> ${this.novelInfo.source}</p>
-                            <h3>Description</h3>
-                            ${this.novelInfo.description}
-                        `,
-                        beforeToc: true
-                    },
-                    ...this.novelInfo.chapters.map(chapter => ({
-                        title: chapter.title,
-                        data: chapter.content
-                    }))
-                ],
-                appendChapterTitles: false,
-                verbose: true
-            };
-
-            // Generate EPUB
-            await new Epub(options, outputPath).promise;
-            console.log(`EPUB generated at: ${outputPath}`);
+            const content = await this.getChapterContent(chapter.url);
+            chapter.content = content.content;
+            await new Promise(resolve => setTimeout(resolve, 100));
         } catch (err) {
-            console.error('Failed to generate EPUB:', err);
-            throw err;
+            console.error(`\nFailed chapter ${i+1}:`, err.message);
+            chapter.content = 'Failed to load content';
         }
     }
-
-    async crawl() {
-        await this.getNovelInfo();
-        console.log(`Retrieved info for: ${this.novelInfo.title}`);
-        
-        await this.getChapterList();
-        console.log(`Found ${this.novelInfo.chapters.length} chapters`);
-        
-        for (let i = 0; i < this.novelInfo.chapters.length; i++) {
-            const chapter = this.novelInfo.chapters[i];
-            process.stdout.write(`Fetching ${i+1}/${this.novelInfo.chapters.length}\r`);
-            
-            try {
-                const content = await this.getChapterContent(chapter.url);
-                chapter.content = content.content;
-                await new Promise(resolve => setTimeout(resolve, 100));
-            } catch (err) {
-                console.error(`\nFailed chapter ${i+1}:`, err.message);
-                chapter.content = 'Failed to load content';
-            }
-        }
-        
-        await this.saveToEpub();
-        console.log('\nDone!');
-    }
+    
+    await this.saveToEpub();
+    console.log('\nDone!');
 }
 
 // Main execution
