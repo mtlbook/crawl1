@@ -171,7 +171,7 @@ class NovelCrawler {
         <link rel="stylesheet" type="text/css" href="css/epub.css" />
     </head>
     <body>
-        <img src="${this.novelInfo.cover}" alt="Cover Image" style="height:auto;width:100%" title="Cover Image" />
+        ${this.novelInfo.cover ? `<img src="${this.novelInfo.cover}" alt="Cover Image" style="height:auto;width:100%" title="Cover Image" />` : ''}
         <h1>${this.novelInfo.title}</h1>
         <h2>by ${this.novelInfo.author}</h2>
     </body>
@@ -181,7 +181,7 @@ class NovelCrawler {
     async saveToEpub() {
         const sanitizedTitle = this.novelInfo.title.replace(/[^a-z0-9]/gi, '_');
         const outputPath = path.join(process.cwd(), 'results', `${sanitizedTitle}.epub`);
-        
+
         if (!fs.existsSync(path.dirname(outputPath))) {
             fs.mkdirSync(path.dirname(outputPath), { recursive: true });
         }
@@ -190,8 +190,8 @@ class NovelCrawler {
             title: this.novelInfo.title,
             author: this.novelInfo.author,
             publisher: this.novelInfo.source,
-            cover: true,
-            css: "body {font-family: sans-serif;line-height: 1.6;font-size: 1em;}", 
+            cover: this.novelInfo.cover,
+            css: "body {font-family: sans-serif;line-height: 1.6;font-size: 1em;background-color: #f5f1e8;background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACQAAAAkCAQAAABLCVATAAAAAXNSR0IArs4c6QAAAWlJREFUeNqlloFtwzAMBFU0PxF34k5eoUtktBZVnBysixEEUWBD+idpUnrTGXNkhPvt18awXZjKyE5BE5ix8sw6IEQHfKA1kZoMF5ZNnndqy1k2vae+wTAjMBPIp+sY3QJP1JADaXtvFjv4LR1TFKA5GD4suFSQcGEhjPWRn2+zKpRLT0hBwSo3lRerdpScpbMQCgZS2cH4tHQwerJVPIQjUVBH9wFTPOMgxnRwObhWLLkKlpaJA8TnpDxBwEv1r8Uo+ImegDVX4DBXKKWt3mQnZRRMlxZ7vfxDra6j0vD8vKUtKvJ79Pt1X9W6XxZNTvphhYxcGEjneWncGVH3pM2kAs6Qlq4XDIus4x2qDKieYEsz0nTAYd96MelYZEEgElZxnJtEa4mefZpr7hHGsLLmS2uDVgPGEUadgBxwrn3zwRwGhkU2NVqy6fUEbRs1CruoCM5zlPaIIL6/biLs0edft/d7IfjhT9gfL6wnSxDYPyIAAAAASUVORK5CYII=);background-attachment: scroll;color: #000000e6;}", 
             content: [
                 {
                     title: 'Cover',
